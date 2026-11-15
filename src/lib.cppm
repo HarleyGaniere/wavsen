@@ -9,7 +9,7 @@ export import wavsen.audio;
 #if LITO_FEAT_VIDEO
 export import wavsen.decode;
 export import wavsen.video;
-#if defined(__APPLE__)
+#    if defined(__APPLE__)
 export import wavsen.video.apple;
-#endif
+#    endif
 #endif

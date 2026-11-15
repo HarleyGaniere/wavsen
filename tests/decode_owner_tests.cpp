@@ -1,5 +1,5 @@
 #if LITO_FEAT_VIDEO
-#include <rstd/macro.hpp>
+#    include <rstd/macro.hpp>
 
 import rstd;
 import wavsen.decode;
@@ -57,5 +57,5 @@ int run(int, char**) {
     return 0;
 }
 
-}
+} // namespace wavsen::tests::decode_owner
 #endif

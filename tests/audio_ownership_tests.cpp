@@ -1,5 +1,5 @@
 #if LITO_FEAT_AUDIO
-#include <rstd/macro.hpp>
+#    include <rstd/macro.hpp>
 
 import rstd;
 import wavsen.audio;
@@ -107,5 +107,5 @@ int run(int, char**) {
     return 0;
 }
 
-}
+} // namespace wavsen::tests::audio_ownership
 #endif

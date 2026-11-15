@@ -99,5 +99,5 @@ int run(int, char**) {
     return 0;
 }
 
-}
+} // namespace wavsen::tests::audio_capture_window
 #endif

@@ -189,17 +189,17 @@ int run_http_resume(int argc, char** argv) {
     const bool reconnect =
         argc < 2 || rstd::ffi::CStr::from_ptr(argv[1]).to_str().unwrap() != "no-reconnect"_str;
     ResolveOnlyIo io;
-    auto opened = OpenedMedia::open(source->as_str(),
-                                     { .timeout_ms = u32(1000),
-                                       .reconnect = reconnect,
-                                       .media_io = Some(dyn<MediaIo>::from_ref(io)) });
+    auto          opened = OpenedMedia::open(source->as_str(),
+                                             { .timeout_ms = u32(1000),
+                                               .reconnect  = reconnect,
+                                               .media_io   = Some(dyn<MediaIo>::from_ref(io)) });
     if (opened.is_err()) return 70;
     StreamDecoder decoder;
     if (! decoder.open(rstd::move(*opened), { u32(2), u32(48000) })) return 71;
     rstd::array<float, 2048> samples {};
-    auto frames = decoder.next_pcm(samples.data(), u32(1024));
+    auto                     frames = decoder.next_pcm(samples.data(), u32(1024));
     if (frames == u64()) return 72;
-    auto path = rstd::path::PathBuf::from(marker->as_str());
+    auto path    = rstd::path::PathBuf::from(marker->as_str());
     auto written = rstd::fs::write(path.as_path(), "drop"_str.as_bytes());
     if (written.is_err()) return 73;
     rstd::thread::sleep(rstd::time::Duration::from_millis(u64(350)));
@@ -212,7 +212,8 @@ int run_http_resume(int argc, char** argv) {
         return decoder.error().kind != MediaErrorKind::None && frames < u64(48000 * 50) ? 0 : 74;
     if (decoder.error().kind != MediaErrorKind::None) {
         rstd::io::eprintln("Media error: kind={}, native_code={}",
-                           static_cast<int>(decoder.error().kind), decoder.error().native_code);
+                           static_cast<int>(decoder.error().kind),
+                           decoder.error().native_code);
         return 75;
     }
     return decoder.is_eof() && frames > u64(48000 * 50) ? 0 : 76;

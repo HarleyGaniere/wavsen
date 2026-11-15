@@ -28,4 +28,4 @@ public:
 };
 static_assert(rstd::mtp::check_trait<Output, UnavailableOutput>());
 static_assert(rstd::mtp::check_trait<Capture, UnavailableCapture>());
-}
+} // namespace wavsen::audio::backend

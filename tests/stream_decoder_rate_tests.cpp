@@ -88,5 +88,5 @@ int run(int, char**) {
     return 0;
 }
 
-}
+} // namespace wavsen::tests::stream_decoder_rate
 #endif

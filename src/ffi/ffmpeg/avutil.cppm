@@ -13,7 +13,7 @@ extern "C" {
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_drm.h>
 #include <libavutil/hwcontext_vulkan.h>
-#if LITO_FEAT_VAAPI && !defined(__APPLE__)
+#if LITO_FEAT_VAAPI && ! defined(__APPLE__)
 #    include <libavutil/hwcontext_vaapi.h>
 #endif
 #include <libavutil/imgutils.h>
@@ -46,8 +46,8 @@ export module wavsen.ffi.ffmpeg:avutil;
 export import wavsen.ffi.ffmpeg.base;
 
 export {
-    inline constexpr AVPixelFormat AV_PIX_FMT_P010    = _wv_avutil::k_AV_PIX_FMT_P010;
-    inline constexpr AVPixelFormat AV_PIX_FMT_P016    = _wv_avutil::k_AV_PIX_FMT_P016;
+    inline constexpr AVPixelFormat AV_PIX_FMT_P010 = _wv_avutil::k_AV_PIX_FMT_P010;
+    inline constexpr AVPixelFormat AV_PIX_FMT_P016 = _wv_avutil::k_AV_PIX_FMT_P016;
 
     using ::AV_VK_FRAME_FLAG_DISABLE_MULTIPLANE;
     using ::AV_VK_FRAME_FLAG_NONE;
@@ -67,7 +67,7 @@ export {
     using ::AVVulkanDeviceContext;
     using ::AVVulkanDeviceQueueFamily;
     using ::AVVulkanFramesContext;
-#if LITO_FEAT_VAAPI && !defined(__APPLE__)
+#if LITO_FEAT_VAAPI && ! defined(__APPLE__)
     using ::AVVAAPIDeviceContext;
     using ::AVVAAPIFramesContext;
 #endif
@@ -89,7 +89,7 @@ export {
     using ::AV_PIX_FMT_RGBA;
     using ::AV_PIX_FMT_VULKAN;
     using ::AV_PIX_FMT_YUV420P;
-#if LITO_FEAT_VAAPI && !defined(__APPLE__)
+#if LITO_FEAT_VAAPI && ! defined(__APPLE__)
     using ::AV_PIX_FMT_VAAPI;
 #endif
     using ::AV_PIX_FMT_DRM_PRIME;
@@ -105,7 +105,7 @@ export {
     using ::AV_HWDEVICE_TYPE_DRM;
     using ::AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
     using ::AV_HWDEVICE_TYPE_VULKAN;
-#if LITO_FEAT_VAAPI && !defined(__APPLE__)
+#if LITO_FEAT_VAAPI && ! defined(__APPLE__)
     using ::AV_HWDEVICE_TYPE_VAAPI;
 #endif
 
@@ -114,13 +114,9 @@ export {
     using ::AV_HWFRAME_MAP_READ;
     using ::AV_HWFRAME_MAP_WRITE;
 
-
-
-
     using ::av_buffer_alloc;
     using ::av_buffer_ref;
     using ::av_buffer_unref;
-
 
     using ::av_hwdevice_ctx_alloc;
     using ::av_hwdevice_ctx_create;
@@ -132,9 +128,6 @@ export {
     using ::av_get_pix_fmt_name;
     using ::av_pix_fmt_desc_get;
 
-
     using ::av_image_fill_arrays;
     using ::av_image_get_buffer_size;
-
-
 }

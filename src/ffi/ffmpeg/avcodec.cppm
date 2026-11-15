@@ -99,9 +99,7 @@ int prepare_vulkan_decode_frames(AVBufferRef* frames_ref) {
 } // namespace _wv_avcodec
 
 export {
-
-    inline constexpr int AV_INPUT_BUFFER_PADDING_SIZE =
-        _wv_avcodec::k_AV_INPUT_BUFFER_PADDING_SIZE;
+    inline constexpr int AV_INPUT_BUFFER_PADDING_SIZE = _wv_avcodec::k_AV_INPUT_BUFFER_PADDING_SIZE;
 
     using ::avcodec_default_get_format;
     using ::avcodec_get_hw_frames_parameters;
@@ -109,5 +107,4 @@ export {
     inline int avcodec_prepare_vulkan_decode_frames(AVBufferRef* frames_ref) {
         return _wv_avcodec::prepare_vulkan_decode_frames(frames_ref);
     }
-
 }

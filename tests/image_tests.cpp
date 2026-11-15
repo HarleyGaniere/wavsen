@@ -1,5 +1,5 @@
 #if LITO_FEAT_IMAGE
-#include <rstd/macro.hpp>
+#    include <rstd/macro.hpp>
 import rstd;
 import wavsen.image;
 import wavsen.ffi.ffmpeg.base;
@@ -302,5 +302,5 @@ int run(int argc, char** argv) {
     return 0;
 }
 
-}
+} // namespace wavsen::tests::image
 #endif

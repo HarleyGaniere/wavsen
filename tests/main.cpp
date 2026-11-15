@@ -19,7 +19,7 @@ namespace wavsen::tests::audio_media
 {
 int run(int, char**);
 int run_http_resume(int, char**);
-}
+} // namespace wavsen::tests::audio_media
 namespace wavsen::tests::audio_ownership
 {
 int run(int, char**);
