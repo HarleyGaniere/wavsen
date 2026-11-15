@@ -18,6 +18,7 @@ int run(int, char**);
 namespace wavsen::tests::audio_media
 {
 int run(int, char**);
+int run_http_resume(int, char**);
 }
 namespace wavsen::tests::audio_ownership
 {
@@ -71,6 +72,7 @@ int main(int argc, char** argv) {
     suites.push({ "audio-gain"_str, wavsen::tests::audio_gain::run });
     suites.push({ "audio-backend"_str, wavsen::tests::audio_backend::run });
     suites.push({ "audio-media"_str, wavsen::tests::audio_media::run });
+    suites.push({ "audio-http-resume"_str, wavsen::tests::audio_media::run_http_resume });
     suites.push({ "audio-ownership"_str, wavsen::tests::audio_ownership::run });
     suites.push({ "stream-decoder-rate"_str, wavsen::tests::stream_decoder_rate::run });
 #endif

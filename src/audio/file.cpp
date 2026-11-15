@@ -135,6 +135,7 @@ public:
         if (request.end_offset.is_some()) av_dict_set(opts, "seekable", "0", 0);
         av_dict_set_int(
             opts, "rw_timeout", self.options.timeout_ms.to_primitive() * rstd::int64_t(1000), 0);
+        av_dict_set(opts, "reconnect", self.options.reconnect ? "1" : "0", 0);
         int rc =
             avio_open2(output, name.unwrap().as_ptr(), flags, &format->interrupt_callback, opts);
         if (rc < 0) {

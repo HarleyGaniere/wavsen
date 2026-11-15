@@ -179,6 +179,45 @@ int media_io_lifetime() {
     return 0;
 }
 } // namespace
+int run_http_resume(int argc, char** argv) {
+    auto source = rstd::env::var("WAVSEN_TEST_RESUME_URL"_str);
+    auto marker = rstd::env::var("WAVSEN_TEST_RESUME_DROP"_str);
+    if (source.is_err() || source->is_empty() || marker.is_err() || marker->is_empty()) {
+        rstd::io::println("HTTP resume fixture is not configured");
+        return 0;
+    }
+    const bool reconnect =
+        argc < 2 || rstd::ffi::CStr::from_ptr(argv[1]).to_str().unwrap() != "no-reconnect"_str;
+    ResolveOnlyIo io;
+    auto opened = OpenedMedia::open(source->as_str(),
+                                     { .timeout_ms = u32(1000),
+                                       .reconnect = reconnect,
+                                       .media_io = Some(dyn<MediaIo>::from_ref(io)) });
+    if (opened.is_err()) return 70;
+    StreamDecoder decoder;
+    if (! decoder.open(rstd::move(*opened), { u32(2), u32(48000) })) return 71;
+    rstd::array<float, 2048> samples {};
+    auto frames = decoder.next_pcm(samples.data(), u32(1024));
+    if (frames == u64()) return 72;
+    auto path = rstd::path::PathBuf::from(marker->as_str());
+    auto written = rstd::fs::write(path.as_path(), "drop"_str.as_bytes());
+    if (written.is_err()) return 73;
+    rstd::thread::sleep(rstd::time::Duration::from_millis(u64(350)));
+    for (int count = 0; count < 10000 && ! decoder.is_eof(); ++count) {
+        auto read = decoder.next_pcm(samples.data(), u32(1024));
+        frames += read;
+        if (read == u64()) break;
+    }
+    if (! reconnect)
+        return decoder.error().kind != MediaErrorKind::None && frames < u64(48000 * 50) ? 0 : 74;
+    if (decoder.error().kind != MediaErrorKind::None) {
+        rstd::io::eprintln("Media error: kind={}, native_code={}",
+                           static_cast<int>(decoder.error().kind), decoder.error().native_code);
+        return 75;
+    }
+    return decoder.is_eof() && frames > u64(48000 * 50) ? 0 : 76;
+}
+
 int run(int argc, char** argv) {
     if (argc > 1) {
         const bool expect_error =
