@@ -82,7 +82,7 @@ auto Pixels::data() const -> const rstd::uint8_t* {
     return static_cast<const rstd::uint8_t*>(storage_->pointer);
 }
 auto Pixels::data_mut() -> rstd::uint8_t* { return static_cast<rstd::uint8_t*>(storage_->pointer); }
-auto Pixels::size() const -> usize { return storage_->layout.size; }
+auto Pixels::size() const -> usize { return storage_->layout.size(); }
 
 auto Cancellation::make() -> Result<Cancellation, Error> {
     auto state = Arc<rstd::sync::atomic::Atomic<bool>>::try_make(false);

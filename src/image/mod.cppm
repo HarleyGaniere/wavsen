@@ -151,9 +151,9 @@ struct StillImage {
     ImageDescriptor      descriptor;
     Option<Pixels>       icc;
     Vec<MetadataField>   metadata = Vec<MetadataField>::make();
-    Option<Pixels>       source_exif;
-    Option<Pixels>       source_xmp;
-    Option<Source>       encoded_source;
+    Option<Pixels>       source_exif {};
+    Option<Pixels>       source_xmp {};
+    Option<Source>       encoded_source {};
     Vec<MetadataPayload> source_metadata = Vec<MetadataPayload>::make();
 };
 
