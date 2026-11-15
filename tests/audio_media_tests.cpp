@@ -2,11 +2,12 @@
 import rstd;
 import wavsen.audio;
 
-namespace wavsen::tests::audio_media
-{
 using namespace rstd::prelude;
 using namespace rstd::literals;
 using namespace wavsen::audio;
+
+namespace wavsen::tests::audio_media
+{
 namespace
 {
 void push_u16(Vec<u8>& out, rstd::uint16_t value) {
@@ -64,15 +65,22 @@ bool cancel(void* value) noexcept {
         rstd::sync::atomic::Ordering::Acquire);
 }
 
-class LeaseIo final : public MediaIo {
+class ResolveOnlyIo final : public DefaultInClass<ResolveOnlyIo, MediaIo> {
 public:
-    auto resolve(const MediaIoRequest& request) -> Result<MediaInput, MediaError> override {
+    auto resolve(const MediaIoRequest& request) -> Result<MediaInput, MediaError> {
+        return Ok(MediaInput { String::make(request.uri) });
+    }
+};
+
+class LeaseIo final : public DefaultInClass<LeaseIo, MediaIo> {
+public:
+    auto resolve(const MediaIoRequest& request) -> Result<MediaInput, MediaError> {
         if (reject) return Err(MediaError { MediaErrorKind::Open });
         releases.push(u32());
         return Ok(
             MediaInput { String::make(request.uri), u64(releases.len().to_primitive()), true });
     }
-    void release(u64 lease) noexcept override {
+    void release(u64 lease) noexcept {
         if (lease == u64() || lease > u64(releases.len().to_primitive())) {
             invalid_release = true;
             return;
@@ -92,6 +100,14 @@ public:
 };
 
 int media_io_lifetime() {
+    ResolveOnlyIo defaults;
+    auto          borrowed = dyn<MediaIo>::from_ref(defaults);
+    auto          resolved = borrowed->resolve({ .uri = "media.wav"_str });
+    if (resolved.is_err() || resolved->uri.as_str() != "media.wav"_str) return 64;
+    borrowed->release(resolved->lease);
+    borrowed->keep_alive();
+    borrowed->close();
+
     auto directory = rstd::fs::TempDir::make("wavsen-media-io"_str).unwrap();
     auto root      = rstd::path::PathBuf::from(directory.path());
     auto wav       = root.join("audio.wav"_str);
@@ -114,7 +130,8 @@ int media_io_lifetime() {
     LeaseIo io;
     for (int i = 0; i < 3; ++i) {
         StreamDecoder decoder;
-        auto opened = OpenedMedia::open(wav.as_path().to_str().unwrap(), { .media_io = &io });
+        auto          opened = OpenedMedia::open(wav.as_path().to_str().unwrap(),
+                                                 { .media_io = Some(dyn<MediaIo>::from_ref(io)) });
         if (opened.is_err()) return 50;
         if (! decoder.open(rstd::move(opened).unwrap(), { u32(2), u32(48000) })) return 51;
         rstd::array<float, 2048> output {};
@@ -124,18 +141,23 @@ int media_io_lifetime() {
     for (auto path :
          rstd::array<ref<rstd::path::Path>, 2> { invalid.as_path(), missing.as_path() }) {
         LeaseIo failed;
-        if (OpenedMedia::open(path.to_str().unwrap(), { .media_io = &failed }).is_ok()) return 54;
+        if (OpenedMedia::open(path.to_str().unwrap(),
+                              { .media_io = Some(dyn<MediaIo>::from_ref(failed)) })
+                .is_ok())
+            return 54;
         if (failed.releases.len() != usize(1) || ! failed.balanced()) return 55;
     }
     LeaseIo rejected;
     rejected.reject = true;
-    if (OpenedMedia::open(wav.as_path().to_str().unwrap(), { .media_io = &rejected }).is_ok())
+    if (OpenedMedia::open(wav.as_path().to_str().unwrap(),
+                          { .media_io = Some(dyn<MediaIo>::from_ref(rejected)) })
+            .is_ok())
         return 56;
     if (! rejected.releases.is_empty() || ! rejected.balanced()) return 57;
     LeaseIo nested;
     {
-        auto opened =
-            OpenedMedia::open(master.as_path().to_str().unwrap(), { .media_io = &nested });
+        auto opened = OpenedMedia::open(master.as_path().to_str().unwrap(),
+                                        { .media_io = Some(dyn<MediaIo>::from_ref(nested)) });
         if (opened.is_err()) return 58;
         StreamDecoder decoder;
         if (! decoder.open(rstd::move(opened).unwrap(), { u32(2), u32(48000) })) return 59;
@@ -149,7 +171,9 @@ int media_io_lifetime() {
             .as_bytes())
         .unwrap();
     LeaseIo broken;
-    if (OpenedMedia::open(master.as_path().to_str().unwrap(), { .media_io = &broken }).is_ok())
+    if (OpenedMedia::open(master.as_path().to_str().unwrap(),
+                          { .media_io = Some(dyn<MediaIo>::from_ref(broken)) })
+            .is_ok())
         return 62;
     if (broken.releases.len() < usize(3) || ! broken.balanced()) return 63;
     return 0;
@@ -229,5 +253,5 @@ int run(int argc, char** argv) {
     if (cancelled.is_ok() || cancelled.unwrap_err().kind != MediaErrorKind::Cancelled) return 13;
     return media_io_lifetime();
 }
-}
+} // namespace wavsen::tests::audio_media
 #endif

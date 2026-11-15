@@ -55,22 +55,28 @@ struct MediaInput {
     u64    lease {};
     bool   time_seekable {};
 };
-class MediaIo {
-public:
-    virtual ~MediaIo()                                                            = default;
-    virtual auto resolve(const MediaIoRequest&) -> Result<MediaInput, MediaError> = 0;
-    virtual void release(u64) noexcept {}
-    virtual void keep_alive() {}
-    virtual void close() noexcept {}
+struct MediaIo {
+    template<class Self, class = void>
+    struct Api {
+        using Trait = MediaIo;
+        auto resolve(const MediaIoRequest& request) -> Result<MediaInput, MediaError> {
+            return rstd::trait_call<0>(this, request);
+        }
+        void release(u64 lease) noexcept { rstd::trait_call<1>(this, lease); }
+        void keep_alive() { rstd::trait_call<2>(this); }
+        void close() noexcept { rstd::trait_call<3>(this); }
+    };
+    template<class T>
+    using Funcs = rstd::TraitFuncs<&T::resolve, &T::release, &T::keep_alive, &T::close>;
 };
 
 // Both contexts and media_io must outlive the opened media and its decoder.
 struct MediaOpenOptions {
     void* context {};
     bool (*cancelled)(void*) noexcept {};
-    u32      timeout_ms { 5000 };
-    bool     reconnect { true };
-    MediaIo* media_io {};
+    u32                           timeout_ms { 5000 };
+    bool                          reconnect { true };
+    Option<mut_ref<dyn<MediaIo>>> media_io;
 };
 
 class OpenedMedia {
@@ -154,3 +160,20 @@ auto make_stream(ByteStream source, const SoundStream::Desc& desc)
     -> Option<Box<dyn<SoundStreamObject>>>;
 
 } // namespace wavsen::audio
+
+export namespace rstd
+{
+template<class T>
+struct Impl<wavsen::audio::MediaIo, default_tag<T>> : ImplBase<T> {
+    void release(u64) noexcept {}
+    void keep_alive() {}
+    void close() noexcept {}
+};
+
+template<class T>
+struct Impl<wavsen::audio::MediaIo, in_class_default_tag<T>> : ImplBase<in_class_default_tag<T>> {
+    void release(u64) noexcept {}
+    void keep_alive() {}
+    void close() noexcept {}
+};
+} // namespace rstd

@@ -56,7 +56,7 @@ public:
         for (auto& reader : readers) {
             if (reader.avio) {
                 avio_closep(&reader.avio);
-                options.media_io->release(reader.lease);
+                (*options.media_io)->release(reader.lease);
             }
         }
         if (avio) {
@@ -120,7 +120,7 @@ public:
             (request.offset.is_some() && request.end_offset.is_some() &&
              *request.end_offset <= *request.offset))
             return AVERROR(EIO);
-        auto resolved = self.options.media_io->resolve(request);
+        auto resolved = (*self.options.media_io)->resolve(request);
         if (resolved.is_err()) {
             self.io_error = rstd::move(resolved).unwrap_err();
             return self.cancelled() ? AVERROR_EXIT : AVERROR(EIO);
@@ -128,7 +128,7 @@ public:
         auto input = rstd::move(resolved).unwrap();
         auto name  = rstd::ffi::CString::make(rstd::move(input.uri));
         if (name.is_err()) {
-            self.options.media_io->release(input.lease);
+            (*self.options.media_io)->release(input.lease);
             return AVERROR(EIO);
         }
         // A bounded HTTP view must reopen for another range; its end_offset cannot be reused.
@@ -138,7 +138,7 @@ public:
         int rc =
             avio_open2(output, name.unwrap().as_ptr(), flags, &format->interrupt_callback, opts);
         if (rc < 0) {
-            self.options.media_io->release(input.lease);
+            (*self.options.media_io)->release(input.lease);
             return rc;
         }
         self.timeline_seekable = self.timeline_seekable || input.time_seekable;
@@ -150,7 +150,7 @@ public:
         }
         if (self.readers.len() >= usize(64)) {
             avio_closep(output);
-            self.options.media_io->release(input.lease);
+            (*self.options.media_io)->release(input.lease);
             return AVERROR(EIO);
         }
         self.readers.push(IoReader { *output, input.lease });
@@ -161,7 +161,7 @@ public:
         for (auto& reader : self.readers) {
             if (reader.avio == input) {
                 int rc = avio_closep(&reader.avio);
-                self.options.media_io->release(reader.lease);
+                (*self.options.media_io)->release(reader.lease);
                 return rc;
             }
         }
@@ -171,7 +171,7 @@ public:
         format = avformat_alloc_context();
         if (! format) return { MediaErrorKind::Open, i32(-12) };
         format->interrupt_callback = { &interrupt, this };
-        if (options.media_io) {
+        if (options.media_io.is_some()) {
             if (source.is_some()) return { MediaErrorKind::InvalidInput };
             format->opaque    = this;
             format->io_open   = &io_open;
@@ -195,8 +195,9 @@ public:
             &opts, "rw_timeout", options.timeout_ms.to_primitive() * rstd::int64_t(1000), 0);
         av_dict_set_int(
             &opts, "timeout", options.timeout_ms.to_primitive() * rstd::int64_t(1000), 0);
-        if (options.reconnect && ! options.media_io) av_dict_set(&opts, "reconnect", "1", 0);
-        if (options.media_io) {
+        if (options.reconnect && options.media_io.is_none())
+            av_dict_set(&opts, "reconnect", "1", 0);
+        if (options.media_io.is_some()) {
             av_dict_set(&opts, "http_persistent", "0", 0);
             av_dict_set(&opts, "http_multiple", "0", 0);
         }
@@ -211,11 +212,11 @@ public:
         if (format->duration != AV_NOPTS_VALUE && format->duration >= 0)
             info.duration_seconds = Some(f64(double(format->duration) / AV_TIME_BASE));
         info.byte_seekable = format->pb && (format->pb->seekable & AVIO_SEEKABLE_NORMAL);
-        const bool hls = text(format->iformat->name).as_str() == "hls"_str;
-        info.seekable = hls ? ((! options.media_io || timeline_seekable) &&
-                               info.duration_seconds.is_some() &&
-                               !(format->ctx_flags & AVFMTCTX_UNSEEKABLE))
-                            : info.byte_seekable;
+        const bool hls     = text(format->iformat->name).as_str() == "hls"_str;
+        info.seekable =
+            hls ? ((options.media_io.is_none() || timeline_seekable) &&
+                   info.duration_seconds.is_some() && ! (format->ctx_flags & AVFMTCTX_UNSEEKABLE))
+                : info.byte_seekable;
         const AVDictionaryEntry* tag = nullptr;
         while ((tag = av_dict_get(format->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
             info.tags.push(MediaTag { text(tag->key), text(tag->value) });
