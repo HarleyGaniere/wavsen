@@ -175,7 +175,6 @@ Option<Box<Producer>> Producer::build_(u32 width, u32 height, Option<ref<str>> r
     const char* required_extensions[] = {
         VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
         VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME,
-        VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME,
         VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
         VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME,
     };
@@ -282,6 +281,8 @@ Option<Box<Producer>> Producer::build_(u32 width, u32 height, Option<ref<str>> r
     for (const char* extension : required_extensions) self->enabled_dev_exts_.push_back(extension);
     if (have_drm_extension) self->enabled_dev_exts_.push_back("VK_EXT_physical_device_drm");
     const char* optional_extensions[] = {
+        // Optional: GPUs without it (e.g. RADV on GFX8/Tonga) use linear DMA-BUFs.
+        "VK_EXT_image_drm_format_modifier",
         "VK_KHR_video_queue",       "VK_KHR_video_decode_queue", "VK_KHR_video_decode_h264",
         "VK_KHR_video_decode_h265", "VK_KHR_video_decode_av1",   "VK_EXT_external_memory_host",
         "VK_KHR_push_descriptor",   "VK_KHR_synchronization2",   "VK_KHR_timeline_semaphore",
