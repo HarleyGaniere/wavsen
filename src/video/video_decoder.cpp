@@ -137,6 +137,28 @@ String resolve_render_node(const Producer& producer, const OpenOpts& opts) {
     return node.is_some() ? rstd::move(node).unwrap() : String {};
 }
 
+/* The VA-API path imports DRM PRIME surfaces into Vulkan using
+ * VkImageDrmFormatModifierExplicitCreateInfoEXT, which is only valid when
+ * VK_EXT_image_drm_format_modifier is enabled. Without it (e.g. Polaris/GFX8
+ * on RADV) the import is undefined behaviour and shows up as garbled output
+ * with no error, so VA-API must not be selected on such devices. */
+bool producer_supports_drm_modifiers(const Producer& producer) {
+    const char* want = "VK_EXT_image_drm_format_modifier";
+    auto exts = producer.enabled_device_extensions();
+    for (usize i {}; i < exts.len(); ++i) {
+        const char* ext = exts[i];
+        if (ext == nullptr) continue;
+        const char* a = ext;
+        const char* b = want;
+        while (*a != '\0' && *a == *b) {
+            ++a;
+            ++b;
+        }
+        if (*a == '\0' && *b == '\0') return true;
+    }
+    return false;
+}
+
 const char* hw_accel_name(HwAccel accel) {
     switch (accel) {
     case HwAccel::Auto: return "auto";
@@ -729,8 +751,13 @@ auto VideoDecoder::open_with_vk(ref<str> path, u32 target_width, u32 target_heig
             kind = FrameKind::VulkanShared;
         } else if (order[i] == HwAccel::Vaapi) {
 #if LITO_FEAT_VAAPI && ! defined(__APPLE__)
-            hwd  = make_vaapi_hwdevice(render_node, &local_err);
-            kind = FrameKind::VaapiDrm;
+            if (! producer_supports_drm_modifiers(producer)) {
+                local_err.message = String::make(
+                    "VK_EXT_image_drm_format_modifier unavailable; VA-API import unsupported"_str);
+            } else {
+                hwd  = make_vaapi_hwdevice(render_node, &local_err);
+                kind = FrameKind::VaapiDrm;
+            }
 #else
             local_err.message = String::make("wavsen built without VAAPI support"_str);
 #endif
@@ -864,8 +891,13 @@ auto VideoDecoder::open_from_stream(InputStreamFactory make_stream, u32 target_w
             kind = FrameKind::VulkanShared;
         } else if (order[i] == HwAccel::Vaapi) {
 #if LITO_FEAT_VAAPI && ! defined(__APPLE__)
-            hwd  = make_vaapi_hwdevice(render_node, &local_err);
-            kind = FrameKind::VaapiDrm;
+            if (! producer_supports_drm_modifiers(*producer)) {
+                local_err.message = String::make(
+                    "VK_EXT_image_drm_format_modifier unavailable; VA-API import unsupported"_str);
+            } else {
+                hwd  = make_vaapi_hwdevice(render_node, &local_err);
+                kind = FrameKind::VaapiDrm;
+            }
 #else
             local_err.message = String::make("wavsen built without VAAPI support"_str);
 #endif
