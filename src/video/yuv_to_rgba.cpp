@@ -1350,6 +1350,7 @@ int YuvToRgba::convert_nv12_(VkImage dst, rstd::uint32_t dst_w, rstd::uint32_t d
         pc.m_b[i]    = cm.m_b[i];
         pc.offset[i] = cm.offset[i];
     }
+    pc.offset[3] = 1.0f; /* 8-bit code values: no depth rescale. */
     software_command_.PushConstants(*pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, pc);
     const rstd::uint32_t gx = (dst_w + 7) / 8;
     const rstd::uint32_t gy = (dst_h + 7) / 8;
@@ -1459,6 +1460,8 @@ auto YuvToRgba::convert_av_vk_frame_(ConversionReservation& reservation, VkFrame
     /* Build per-call image views aliasing the AVVkFrame planes + dst. */
     vvk::ImageView y_view;
     vvk::ImageView uv_view;
+    /* Rescale for 10-bit plane views (see the format selection below). */
+    float depth_scale = 1.0f;
 
     {
         VkImageViewUsageCreateInfo sampled_usage {};
@@ -1476,15 +1479,24 @@ auto YuvToRgba::convert_av_vk_frame_(ConversionReservation& reservation, VkFrame
         /* Per-plane formats:
          *   - disjoint 8-bit:  R8_UNORM    / R8G8_UNORM
          *   - disjoint 10-bit: R16_UNORM   / R16G16_UNORM
-         *   - single multi-plane (always 8-bit here; 10-bit via plane
-         *     view requires R10X6_UNORM_PACK16 / R10X6G10X6_UNORM_2PACK16
-         *     and the shader expects 8-bit for now): R8_UNORM / R8G8_UNORM
-         *     + VK_IMAGE_ASPECT_PLANE_{0,1}_BIT. */
-        VkFormat y_fmt, uv_fmt;
+         *   - single multi-plane 8-bit:  R8_UNORM    / R8G8_UNORM
+         *   - single multi-plane 10-bit: R10X6_UNORM_PACK16 /
+         *     R10X6G10X6_UNORM_2PACK16, sampled via
+         *     VK_IMAGE_ASPECT_PLANE_{0,1}_BIT (FFmpeg's vulkan decoder hands
+         *     P010 as one VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_PACK32
+         *     image; sampling it with R8 views is what produced the corrupt
+         *     output). The shader rescales via pc.offset.w. */
+        const bool deep = frame.bit_depth >= u32(16);
+        VkFormat   y_fmt, uv_fmt;
         if (single_image) {
-            y_fmt  = VK_FORMAT_R8_UNORM;
-            uv_fmt = VK_FORMAT_R8G8_UNORM;
+            y_fmt  = deep ? VK_FORMAT_R10X6_UNORM_PACK16 : VK_FORMAT_R8_UNORM;
+            uv_fmt = deep ? VK_FORMAT_R10X6G10X6_UNORM_2PACK16 : VK_FORMAT_R8G8_UNORM;
+            /* R10X6_UNORM_PACK16 normalizes the 10-bit code against 1023 while
+             * the matrix rows assume 8-bit full scale (1020). */
+            if (deep) depth_scale = 1023.0f / 1020.0f;
         } else {
+            /* Disjoint 10-bit planes keep depth_scale at 1.0 as before; an R16
+             * view of MSB-justified P010 would want 65535 / (64 * 1020). */
             y_fmt  = frame.bit_depth >= u32(16) ? VK_FORMAT_R16_UNORM : VK_FORMAT_R8_UNORM;
             uv_fmt = frame.bit_depth >= u32(16) ? VK_FORMAT_R16G16_UNORM : VK_FORMAT_R8G8_UNORM;
         }
@@ -1639,6 +1651,8 @@ auto YuvToRgba::convert_av_vk_frame_(ConversionReservation& reservation, VkFrame
         pc.m_b[i]    = cm.m_b[i];
         pc.offset[i] = cm.offset[i];
     }
+    /* Map the sampled code values onto the 8-bit full range the rows assume. */
+    pc.offset[3] = depth_scale;
     context->command.PushConstants(*pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, pc);
     const rstd::uint32_t gx = (dst_w + 7) / 8;
     const rstd::uint32_t gy = (dst_h + 7) / 8;
@@ -2183,6 +2197,7 @@ auto YuvToRgba::submit_drm_prime(ConversionReservation&& reservation, DrmFrameLe
         push_constants.m_b[index]    = cm.m_b[index];
         push_constants.offset[index] = cm.offset[index];
     }
+    push_constants.offset[3] = 1.0f;
     context->command.PushConstants(*pipeline_layout_, VK_SHADER_STAGE_COMPUTE_BIT, push_constants);
     context->command.Dispatch((dst_w.to_primitive() + 7) / 8, (dst_h.to_primitive() + 7) / 8, 1);
 

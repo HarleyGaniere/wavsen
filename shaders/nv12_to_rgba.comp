@@ -25,7 +25,7 @@ layout(push_constant) uniform PC {
     vec4  m_r;            // {y, cb, cr, _} scaling Y/Cb/Cr → R
     vec4  m_g;            // {y, cb, cr, _} → G
     vec4  m_b;            // {y, cb, cr, _} → B
-    vec4  offset;         // {y_off, cb_off, cr_off, _} subtract before matmul
+    vec4  offset;         // {y_off, cb_off, cr_off, scale} subtract/scale before matmul
 } pc;
 
 void main() {
@@ -48,7 +48,10 @@ void main() {
     float Y  = texture(y_tex, y_uv).r;
     vec2  CC = texture(uv_tex, uv_uv).rg;
 
-    vec3 ycbcr = vec3(Y, CC.r, CC.g) + pc.offset.xyz;
+    // offset.w rescales the sampled code values: 1.0 for 8-bit NV12, and
+    // 1023/1020 when sampling a 10-bit P010 plane view (R10X6_UNORM_PACK16
+    // normalizes against 1023 while the matrix rows assume 8-bit full scale).
+    vec3 ycbcr = vec3(Y, CC.r, CC.g) * pc.offset.w + pc.offset.xyz;
     vec3 rgb   = vec3(dot(ycbcr, pc.m_r.xyz),
                       dot(ycbcr, pc.m_g.xyz),
                       dot(ycbcr, pc.m_b.xyz));
